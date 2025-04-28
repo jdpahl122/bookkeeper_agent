@@ -7,23 +7,16 @@ def main():
     model = load_model(config)
     agent = BookkeeperAgent(model)
 
-    # 1. Add a transaction
+    # Example: Add a transaction
     print(agent.run(
         "add_transaction", 
         description="Payment to AWS for cloud hosting", 
         amount=-50.00
     ))
 
-    # 2. Add another
+    # Example: Process and output categorized ledger
     print(agent.run(
-        "add_transaction", 
-        description="Customer payment via Stripe", 
-        amount=200.00
-    ))
-
-    # 3. Categorize all Uncategorized transactions
-    print(agent.run(
-        "categorize_transactions"
+        "process_transactions"
     ))
 
 if __name__ == "__main__":

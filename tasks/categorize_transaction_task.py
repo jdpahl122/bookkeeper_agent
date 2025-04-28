@@ -4,7 +4,7 @@ import shutil
 from .base_task import BaseTask
 
 class CategorizeTransactionTask(BaseTask):
-    def __init__(self, model, csv_file_path="example/transactions.csv"):
+    def __init__(self, model, csv_file_path="example/real_transactions.csv"):
         super().__init__(model)
         self.csv_file_path = csv_file_path
 

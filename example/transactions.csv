@@ -1,5 +1,7 @@
-date,description,amount,category
-2025-04-28,Payment to AWS for hosting,-50.00,Hosting Expenses
-2025-04-28,Stripe Subscription Payment,200.00,SaaS Revenue
-2025-04-28,Payment to AWS for cloud hosting,-50.0,Hosting Expenses
-2025-04-28,Customer payment via Stripe,200.0,Revenue
+date,description,amount
+2025-04-28,Payment to AWS for hosting,-50.00
+2025-04-28,Stripe subscription payment,200.00
+2025-04-28,Payment to AWS for cloud hosting,-50.0
+2025-04-28,Payment to AWS for cloud hosting,-50.0
+2025-04-28,Payment to AWS for cloud hosting,-50.0
+2025-04-28,Payment to AWS for cloud hosting,-50.0

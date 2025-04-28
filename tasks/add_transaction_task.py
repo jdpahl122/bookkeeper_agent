@@ -10,9 +10,9 @@ class AddTransactionTask(BaseTask):
     def execute(self, description, amount, date=None):
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
-        
+
         with open(self.csv_file_path, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([date, description, amount, "Uncategorized"])
-        
+            writer.writerow([date, description, amount])
+
         return f"Transaction added: {description} | {amount} | {date}"
