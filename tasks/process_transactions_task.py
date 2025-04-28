@@ -114,21 +114,53 @@ class ProcessTransactionsTask(BaseTask):
             writer.writerows(new_rows)
 
     def _write_summary(self, summary):
-        file_exists = os.path.isfile(self.summary_csv)
-        with open(self.summary_csv, mode='a', newline='') as file:
+        existing_summary = {}
+
+        # Load existing monthly summaries if file exists
+        if os.path.isfile(self.summary_csv):
+            with open(self.summary_csv, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    existing_summary[row['month']] = {
+                        'accounts_payable': float(row['accounts_payable']),
+                        'accounts_receivable': float(row['accounts_receivable']),
+                        'revenue': float(row['revenue']),
+                        'expenses': float(row['expenses']),
+                        'net_income': float(row['net_income'])
+                    }
+
+        # Merge new summary into existing summary
+        for month, totals in summary.items():
+            if month not in existing_summary:
+                existing_summary[month] = {
+                    'accounts_payable': 0.0,
+                    'accounts_receivable': 0.0,
+                    'revenue': 0.0,
+                    'expenses': 0.0,
+                    'net_income': 0.0
+                }
+
+            existing_summary[month]['accounts_payable'] += totals['Accounts Payable']
+            existing_summary[month]['accounts_receivable'] += totals['Accounts Receivable']
+            existing_summary[month]['revenue'] += totals['Revenue']
+            existing_summary[month]['expenses'] += totals['Expense']
+            existing_summary[month]['net_income'] = (
+                existing_summary[month]['revenue'] + existing_summary[month]['accounts_receivable']
+                + existing_summary[month]['expenses'] + existing_summary[month]['accounts_payable']
+            )
+
+        # Rewrite the summary file
+        with open(self.summary_csv, mode='w', newline='') as file:
             fieldnames = ['month', 'accounts_payable', 'accounts_receivable', 'revenue', 'expenses', 'net_income']
             writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
 
-            if not file_exists:
-                writer.writeheader()
-
-            for month, totals in summary.items():
-                net_income = (totals['Revenue'] + totals['Accounts Receivable']) + (totals['Expense'] + totals['Accounts Payable'])
+            for month, totals in sorted(existing_summary.items()):
                 writer.writerow({
                     'month': month,
-                    'accounts_payable': f"{totals['Accounts Payable']:.2f}",
-                    'accounts_receivable': f"{totals['Accounts Receivable']:.2f}",
-                    'revenue': f"{totals['Revenue']:.2f}",
-                    'expenses': f"{totals['Expense']:.2f}",
-                    'net_income': f"{net_income:.2f}"
+                    'accounts_payable': f"{totals['accounts_payable']:.2f}",
+                    'accounts_receivable': f"{totals['accounts_receivable']:.2f}",
+                    'revenue': f"{totals['revenue']:.2f}",
+                    'expenses': f"{totals['expenses']:.2f}",
+                    'net_income': f"{totals['net_income']:.2f}"
                 })
