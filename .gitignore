@@ -1,3 +1,4 @@
 .env
+example/transactions.csv
 example/processed_transactions.csv
 example/monthly_summary.csv

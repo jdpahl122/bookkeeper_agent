@@ -1,4 +1,10 @@
 date,description,amount
-2025-04-28,Payment to AWS for hosting,-50.00
-2025-04-28,Stripe subscription payment,200.00
-2025-04-28,Recieved payment for services,222.0
+2025-04-01,Customer invoice #1001,500.00
+2025-04-05,Customer invoice #1002,750.00
+2025-04-10,Customer invoice #1003,250.00
+2025-04-15,Office rent payment,-1200.00
+2025-04-18,Software subscription - Figma,-45.00
+2025-04-20,Domain registration GoDaddy,-15.00
+2025-04-22,Customer invoice #1004,400.00
+2025-04-25,Consulting fee payment to contractor,-600.00
+2025-04-28,Stripe payout for subscriptions,1400.00

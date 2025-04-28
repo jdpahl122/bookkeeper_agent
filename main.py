@@ -31,8 +31,10 @@ def main():
         print("[2] Process transactions (skip already processed)")
         print("[3] View current status")
         print("[4] Exit")
+        print("[5] Generate AR Aging Report")
+        print("[6] Generate AP Aging Report")
 
-        choice = input("\nEnter your choice (1-4): ")
+        choice = input("\nEnter your choice (1-6): ")
 
         if choice == '1':
             description = input("Enter transaction description: ")
@@ -45,6 +47,14 @@ def main():
         elif choice == '4':
             print("Exiting...")
             break
+        elif choice == '5':
+            from tasks.generate_ar_aging_report import GenerateARAgingReportTask
+            report_task = GenerateARAgingReportTask()
+            print(report_task.execute())
+        elif choice == '6':
+            from tasks.generate_ap_aging_report import GenerateAPAgingReportTask
+            report_task = GenerateAPAgingReportTask()
+            print(report_task.execute())
         else:
             print("Invalid choice. Please try again.")
 
