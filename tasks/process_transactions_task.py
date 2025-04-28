@@ -1,9 +1,11 @@
 import csv
+import hashlib
+import os
 import shutil
 import tempfile
 from datetime import datetime
 from .base_task import BaseTask
-import os
+import re
 
 class ProcessTransactionsTask(BaseTask):
     def __init__(self, model, raw_csv="example/transactions.csv", processed_csv="example/processed_transactions.csv", summary_csv="example/monthly_summary.csv"):
@@ -13,7 +15,8 @@ class ProcessTransactionsTask(BaseTask):
         self.summary_csv = summary_csv
 
     def execute(self):
-        processed_rows = []
+        processed_hashes = self._load_processed_hashes()
+        new_processed_rows = []
         summary = {}
 
         with open(self.raw_csv, mode='r') as file:
@@ -22,9 +25,14 @@ class ProcessTransactionsTask(BaseTask):
                 date = row['date']
                 description = row['description']
                 amount = float(row['amount'])
+                txn_hash = self._generate_hash(date, description, amount)
+
+                if txn_hash in processed_hashes:
+                    continue  # Already processed
+
                 month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m")
 
-                # Categorize transaction
+                # Categorize
                 prompt = (
                     f"Categorize this transaction for a SaaS startup:\n"
                     f"Description: '{description}'\n"
@@ -34,7 +42,7 @@ class ProcessTransactionsTask(BaseTask):
                     f"- No explanations. One line only."
                 )
                 category = self.model.invoke(prompt).strip().split("\n")[0]
-                category = category.replace('"', '').replace("'", '').strip()
+                category = re.sub(r'[\"\']', '', category).strip().title()
 
                 # Determine type
                 if amount < 0:
@@ -42,7 +50,7 @@ class ProcessTransactionsTask(BaseTask):
                 else:
                     type_ = "Accounts Receivable" if "Revenue" in category else "Revenue"
 
-                processed_rows.append({
+                new_processed_rows.append({
                     "date": date,
                     "description": description,
                     "amount": amount,
@@ -51,7 +59,7 @@ class ProcessTransactionsTask(BaseTask):
                     "month": month,
                 })
 
-                # Update monthly summaries
+                # Update monthly summary
                 if month not in summary:
                     summary[month] = {
                         "Accounts Payable": 0,
@@ -59,19 +67,14 @@ class ProcessTransactionsTask(BaseTask):
                         "Revenue": 0,
                         "Expense": 0
                     }
-
                 summary[month][type_] += amount
 
-        # Write processed transactions to processed CSV
-        with tempfile.NamedTemporaryFile('w', delete=False, newline='') as tmpfile:
-            fieldnames = ['date', 'description', 'amount', 'category', 'type', 'month']
-            writer = csv.DictWriter(tmpfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(processed_rows)
+        # Append new processed rows to file
+        self._append_processed(new_processed_rows)
 
-        shutil.move(tmpfile.name, self.processed_csv)
+        # Update summary
+        self._write_summary(summary)
 
-        # Pretty Print Summary to Terminal
         print("\n====== Monthly Financial Summary ======")
         for month, totals in summary.items():
             net_income = (totals['Revenue'] + totals['Accounts Receivable']) + (totals['Expense'] + totals['Accounts Payable'])
@@ -82,10 +85,33 @@ class ProcessTransactionsTask(BaseTask):
             print(f"  Total Expenses: {totals['Expense']:.2f}")
             print(f"  Net Income: {net_income:.2f}")
 
-        # Save/update monthly_summary.csv
-        self._write_summary(summary)
+        return "\nProcessing complete."
 
-        return f"\nProcessing complete. Updated {self.processed_csv} and {self.summary_csv}."
+    def _generate_hash(self, date, description, amount):
+        raw = f"{date}{description}{amount}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def _load_processed_hashes(self):
+        hashes = set()
+        if not os.path.isfile(self.processed_csv):
+            return hashes
+        with open(self.processed_csv, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                h = self._generate_hash(row['date'], row['description'], row['amount'])
+                hashes.add(h)
+        return hashes
+
+    def _append_processed(self, new_rows):
+        file_exists = os.path.isfile(self.processed_csv)
+        with open(self.processed_csv, mode='a', newline='') as file:
+            fieldnames = ['date', 'description', 'amount', 'category', 'type', 'month']
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()
+
+            writer.writerows(new_rows)
 
     def _write_summary(self, summary):
         file_exists = os.path.isfile(self.summary_csv)
