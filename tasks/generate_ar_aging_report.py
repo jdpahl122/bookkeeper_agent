@@ -17,13 +17,15 @@ class GenerateARAgingReportTask:
         with open(self.csv_file, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                if row['type'] != "Accounts Receivable" or row['payment_status'] == "Paid":
+                if row.get('payment_status', 'Unpaid') == "Paid":
                     continue
 
-                # FIX: Use transaction 'date' if 'due_date' is missing
+                if row['type'] not in ("Accounts Receivable", "Revenue"):
+                    continue
+
                 due_date_str = row.get('due_date') or row.get('date')
                 if not due_date_str:
-                    continue  # Skip if no dates available
+                    continue
 
                 due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
                 delta_days = (today - due_date).days

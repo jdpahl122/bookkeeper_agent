@@ -17,7 +17,10 @@ class GenerateAPAgingReportTask:
         with open(self.csv_file, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                if row['type'] != "Accounts Payable" or row['payment_status'] == "Paid":
+                if row.get('payment_status', 'Unpaid') == "Paid":
+                    continue
+
+                if row['type'] not in ("Accounts Payable", "Expense"):
                     continue
 
                 due_date_str = row.get('due_date') or row.get('date')

@@ -1,5 +1,4 @@
 import csv
-import hashlib
 import os
 import shutil
 import tempfile
@@ -15,48 +14,62 @@ class ProcessTransactionsTask(BaseTask):
         self.summary_csv = summary_csv
 
     def execute(self):
-        processed_hashes = self._load_processed_hashes()
+        processed_ids = self._load_processed_ids()
         new_processed_rows = []
         summary = {}
 
         with open(self.raw_csv, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
+                transaction_id = row['transaction_id']
+
+                if transaction_id in processed_ids:
+                    continue  # Already processed
+
                 date = row['date']
                 description = row['description']
                 amount = float(row['amount'])
-                txn_hash = self._generate_hash(date, description, amount)
-
-                if txn_hash in processed_hashes:
-                    continue  # Already processed
-
                 month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m")
 
                 # Categorize
                 prompt = (
-                    f"Categorize this transaction for a SaaS startup:\n"
-                    f"Description: '{description}'\n"
-                    f"Amount: {amount}\n\n"
-                    f"Instructions:\n"
-                    f"- Only respond with a simple category label (e.g., 'Hosting Expenses', 'Subscription Revenue', 'Office Supplies').\n"
-                    f"- No explanations. One line only."
+                    f"You are a professional bookkeeper categorizing financial transactions for a SaaS startup.\n"
+                    f"Transaction Description: '{description}'\n"
+                    f"Transaction Amount: {amount}\n\n"
+                    f"Categorization Instructions:\n"
+                    f"- If the description mentions 'Stripe', treat it as 'Revenue' (not Accounts Receivable).\n"
+                    f"- If the description includes 'invoice', 'payment from customer', or similar, treat as 'Subscription Revenue' under Accounts Receivable.\n"
+                    f"- If the amount is negative and description mentions 'consulting', 'contractor', or 'services', treat as 'Professional Services' under Accounts Payable.\n"
+                    f"- If the amount is negative and description includes 'rent', 'subscription', 'domain', 'hosting', 'software', treat as 'Operating Expenses' under Accounts Payable.\n"
+                    f"- Otherwise, categorize with the best fitting label.\n"
+                    f"- Only respond with the CATEGORY LABEL, no explanations, no quotes.\n"
+                    f"- Examples of valid outputs: 'Subscription Revenue', 'Revenue', 'Professional Services', 'Office Expenses', 'Hosting Expenses'."
                 )
                 category = self.model.invoke(prompt).strip().split("\n")[0]
                 category = re.sub(r'[\"\']', '', category).strip().title()
 
                 # Determine type
                 if amount < 0:
-                    type_ = "Accounts Payable" if "Expense" in category or "Supplies" in category else "Expense"
+                    if "Expense" in category or "Services" in category:
+                        type_ = "Accounts Payable"
+                    else:
+                        type_ = "Expense"
                 else:
-                    type_ = "Accounts Receivable" if "Revenue" in category else "Revenue"
+                    if "Revenue" in category:
+                        type_ = "Revenue"
+                    else:
+                        type_ = "Accounts Receivable"
 
                 new_processed_rows.append({
+                    "transaction_id": transaction_id,
                     "date": date,
                     "description": description,
                     "amount": amount,
                     "category": category,
                     "type": type_,
                     "month": month,
+                    "due_date": date,  # Default for now; will Net 30 later
+                    "payment_status": "Unpaid"
                 })
 
                 # Update monthly summary
@@ -72,7 +85,7 @@ class ProcessTransactionsTask(BaseTask):
         # Append new processed rows to file
         self._append_processed(new_processed_rows)
 
-        # Update summary
+        # Update monthly summary
         self._write_summary(summary)
 
         print("\n====== Monthly Financial Summary ======")
@@ -87,25 +100,21 @@ class ProcessTransactionsTask(BaseTask):
 
         return "\nProcessing complete."
 
-    def _generate_hash(self, date, description, amount):
-        raw = f"{date}{description}{amount}"
-        return hashlib.sha256(raw.encode()).hexdigest()
-
-    def _load_processed_hashes(self):
-        hashes = set()
+    def _load_processed_ids(self):
+        ids = set()
         if not os.path.isfile(self.processed_csv):
-            return hashes
+            return ids
         with open(self.processed_csv, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                h = self._generate_hash(row['date'], row['description'], row['amount'])
-                hashes.add(h)
-        return hashes
+                if 'transaction_id' in row:
+                    ids.add(row['transaction_id'])
+        return ids
 
     def _append_processed(self, new_rows):
         file_exists = os.path.isfile(self.processed_csv)
         with open(self.processed_csv, mode='a', newline='') as file:
-            fieldnames = ['date', 'description', 'amount', 'category', 'type', 'month']
+            fieldnames = ['transaction_id', 'date', 'description', 'amount', 'category', 'type', 'month', 'due_date', 'payment_status']
             writer = csv.DictWriter(file, fieldnames=fieldnames)
 
             if not file_exists:
