@@ -2,7 +2,7 @@ import csv
 import os
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from .base_task import BaseTask
 import re
 
@@ -60,6 +60,15 @@ class ProcessTransactionsTask(BaseTask):
                     else:
                         type_ = "Accounts Receivable"
 
+                # NEW: Set due_date properly
+                txn_date_obj = datetime.strptime(date, "%Y-%m-%d")
+                if "invoice" in description.lower():
+                    due_date_obj = txn_date_obj + timedelta(days=30)
+                else:
+                    due_date_obj = txn_date_obj  # same day
+
+                due_date = due_date_obj.strftime("%Y-%m-%d")
+
                 new_processed_rows.append({
                     "transaction_id": transaction_id,
                     "date": date,
@@ -68,7 +77,7 @@ class ProcessTransactionsTask(BaseTask):
                     "category": category,
                     "type": type_,
                     "month": month,
-                    "due_date": date,  # Default for now; will Net 30 later
+                    "due_date": due_date,
                     "payment_status": "Unpaid"
                 })
 
